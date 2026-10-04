@@ -117,6 +117,11 @@ $   write sys$output "PASS: ", name
 $ else
 $   fail = fail + 1
 $   write sys$output "FAIL: ", name, " (severity ", sev, ")"
+$   if f$search("out.txt") .nes. ""
+$   then
+$     write sys$output "   output was:"
+$     type out.txt;0
+$   endif
 $ endif
 $ return
 $!

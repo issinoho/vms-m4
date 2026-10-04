@@ -1,27 +1,134 @@
-Subject: builtin: on OpenVMS, run syscmd and esyscmd with system() and popen()
+Subject: builtin: on OpenVMS, run syscmd and esyscmd with LIB$SPAWN
 
-gnulib's execute() and create_pipe_in() need fork(), which OpenVMS lacks
-(its posix_spawn emulation does not compile there).  On VMS, run the
-command with the C RTL's system() (syscmd) and popen() (esyscmd), which go
-through DCL, or through the GNV shell when m4 runs under one, and derive
-sysval from the VMS completion status: 0 for success, the exit code of a
-program that exited with a POSIX status, otherwise the status's severity.
+gnulib's execute() and create_pipe_in() need fork(), which OpenVMS lacks.
+The C RTL's system() and popen() are no substitute: their child DCL
+inherits m4's SYS$OUTPUT, and when m4's output goes to a file (the usual
+case) the child cannot write to it (%DCL-W-UNDFIL) and popen() hangs.  On
+VMS, run the command as DCL with LIB$SPAWN, its output going to a
+temporary file in SYS$SCRATCH that m4 then reads: syscmd copies it to
+m4's standard output, esyscmd expands to it.  The subprocess runs a small
+generated procedure that first drops the SYS$OUTPUT and SYS$ERROR it
+inherits from m4 (LIB$SPAWN copies process logical names, and a
+redirection of m4's own output would hide the output file).  sysval is 0 for success,
+the exit code of a program that exited with a POSIX status, otherwise the
+VMS status's severity.
 
---- a/src/builtin.c	2026-10-04 10:18:46.565861095 +0100
-+++ b/src/builtin.c	2026-10-04 10:18:46.566580884 +0100
-@@ -954,6 +954,24 @@
+--- a/src/builtin.c	2026-10-04 12:31:22.559984609 +0100
++++ b/src/builtin.c	2026-10-04 12:31:22.560690537 +0100
+@@ -954,6 +954,125 @@
  /* Exit code from last "syscmd" command.  */
  static int sysval;
  
 +#ifdef __VMS
 +/* OpenVMS has no fork(), so gnulib's execute() and create_pipe_in() cannot
-+   run a command; the C RTL's system() and popen() run it through DCL
-+   instead (or through the GNV shell, when m4 runs under one).  sysval from
-+   the VMS completion status: 0 for success; the exit code of a C program
-+   that exited with a POSIX status (%X35A000 + N*8); otherwise the status's
-+   severity (2 error, 4 fatal, 0 warning).  */
++   run a command, and the C RTL's system() and popen() let the child DCL
++   inherit m4's SYS$OUTPUT, which fails when that is a file (%DCL-W-UNDFIL)
++   and hangs popen().  Run the command as DCL with LIB$SPAWN instead, its
++   output going to a temporary file, and return that output (malloc'ed,
++   *LENP bytes) and the completion status.  */
++# include <descrip.h>
++# include <lib$routines.h>
++# include <unistd.h>
++
++static char *
++vms_spawn (const char *cmd, size_t *lenp, unsigned int *statusp)
++{
++  static unsigned int counter;
++  char base[48], comname[64], outname[64], spawncmd[80];
++  struct dsc$descriptor_s cmd_d, out_d, in_d;
++  unsigned int status, completion = 0;
++  FILE *f;
++  const char *line;
++  char *buf = NULL;
++  size_t len = 0, size = 0;
++  int c;
++
++  snprintf (base, sizeof base, "SYS$SCRATCH:M4_%08X_%u",
++            (unsigned int) getpid (), ++counter);
++  snprintf (comname, sizeof comname, "%s.COM", base);
++  snprintf (outname, sizeof outname, "%s.TMP", base);
++  snprintf (spawncmd, sizeof spawncmd, "@%s", comname);
++
++  /* LIB$SPAWN copies m4's process logical names to the subprocess,
++     including a SYS$OUTPUT or SYS$ERROR that redirects m4's own output,
++     and those would hide the output file given to it (%DCL-W-UNDFIL).
++     So the subprocess runs a procedure that drops them first, then the
++     command, one DCL line per line of CMD.  */
++  f = fopen (comname, "w");
++  if (f == NULL)
++    return NULL;
++  fputs ("$ set noon\n"
++         "$ set message/nofacility/noseverity/noidentification/notext\n"
++         "$ if f$trnlnm(\"SYS$OUTPUT\",\"LNM$PROCESS\",,\"USER\") .nes. \"\""
++         " then deassign/user sys$output\n"
++         "$ if f$trnlnm(\"SYS$OUTPUT\",\"LNM$PROCESS\",,\"SUPERVISOR\") .nes. \"\""
++         " then deassign sys$output\n"
++         "$ if f$trnlnm(\"SYS$ERROR\",\"LNM$PROCESS\",,\"USER\") .nes. \"\""
++         " then deassign/user sys$error\n"
++         "$ if f$trnlnm(\"SYS$ERROR\",\"LNM$PROCESS\",,\"SUPERVISOR\") .nes. \"\""
++         " then deassign sys$error\n"
++         "$ set message/facility/severity/identification/text\n", f);
++  for (line = cmd; *line; )
++    {
++      const char *nl = strchr (line, '\n');
++      size_t n = nl ? (size_t) (nl - line) : strlen (line);
++      fprintf (f, "$ %.*s\n", (int) n, line);
++      line += n + (nl != NULL);
++    }
++  fputs ("$ exit $status\n", f);
++  if (fclose (f) != 0)
++    {
++      while (remove (comname) == 0)
++        ;
++      return NULL;
++    }
++
++  cmd_d.dsc$w_length = (unsigned short) strlen (spawncmd);
++  cmd_d.dsc$b_dtype = DSC$K_DTYPE_T;
++  cmd_d.dsc$b_class = DSC$K_CLASS_S;
++  cmd_d.dsc$a_pointer = spawncmd;
++  out_d = cmd_d;
++  out_d.dsc$w_length = (unsigned short) strlen (outname);
++  out_d.dsc$a_pointer = outname;
++  in_d = cmd_d;
++  in_d.dsc$a_pointer = (char *) "NLA0:";
++  in_d.dsc$w_length = 5;
++  status = lib$spawn (&cmd_d, &in_d, &out_d, 0, 0, 0, &completion,
++                      0, 0, 0, 0, 0, 0);
++  while (remove (comname) == 0)       /* every version */
++    ;
++  if (!(status & 1))
++    {
++      while (remove (outname) == 0)
++        ;
++      return NULL;
++    }
++  *statusp = completion;
++  f = fopen (outname, "r");
++  if (f != NULL)
++    {
++      while ((c = getc (f)) != EOF)
++        {
++          if (len + 1 >= size)
++            {
++              size = size ? 2 * size : 1024;
++              buf = xrealloc (buf, size);
++            }
++          buf[len++] = (char) c;
++        }
++      fclose (f);
++    }
++  while (remove (outname) == 0)
++    ;
++  *lenp = len;
++  return buf ? buf : xstrdup ("");
++}
++
++/* sysval from the VMS completion status: 0 for success; the exit code of
++   a C program that exited with a POSIX status (%X35A000 + N*8); otherwise
++   the status's severity (2 error, 4 fatal, 0 warning).  */
 +static int
-+vms_sysval (int status)
++vms_sysval (unsigned int status)
 +{
 +  if (status & 1)
 +    return 0;
@@ -34,64 +141,67 @@ program that exited with a POSIX status, otherwise the status's severity.
  static void
  m4_syscmd (struct obstack *obs MAYBE_UNUSED, int argc, token_data **argv)
  {
-@@ -970,6 +988,19 @@
+@@ -970,6 +1089,34 @@
      }
  
    debug_flush_files ();
 +#ifdef __VMS
-+  status = system (cmd);
-+  (void) prog_args;
-+  (void) sig_status;
-+  if (status == -1)
++  {
++    /* The command's output goes to m4's standard output, as on Unix.  */
++    unsigned int vstatus;
++    size_t len;
++    char *out = vms_spawn (cmd, &len, &vstatus);
++    (void) prog_args;
++    (void) sig_status;
++    (void) status;
++    if (out == NULL)
++      {
++        M4ERROR ((warning_status, 0, _("cannot run command `%s'"), cmd));
++        sysval = 127;
++        return;
++      }
++    /* putc, not fwrite: to a record-oriented stdout the C RTL writes each
++       fwrite item as a record (one character per line).  */
 +    {
-+      M4ERROR ((warning_status, errno, _("cannot run command `%s'"), cmd));
-+      sysval = 127;
++      size_t k;
++      for (k = 0; k < len; k++)
++        putc ((unsigned char) out[k], stdout);
 +    }
-+  else
-+    sysval = vms_sysval (status);
-+  return;
++    fflush (stdout);
++    free (out);
++    sysval = vms_sysval (vstatus);
++    return;
++  }
 +#endif
  #if W32_NATIVE
    if (strstr (SYSCMD_SHELL, "cmd"))
      {
-@@ -1026,6 +1057,41 @@
+@@ -1026,6 +1173,29 @@
      }
  
    debug_flush_files ();
 +#ifdef __VMS
-+  (void) prog_args;
-+  (void) child;
-+  (void) fd;
-+  (void) sig_status;
-+  pin = popen (cmd, "r");
-+  if (pin == NULL)
-+    {
-+      M4ERROR ((warning_status, errno, _("cannot run command `%s'"), cmd));
-+      sysval = 127;
-+      return;
-+    }
-+  while (1)
-+    {
-+      size_t avail = obstack_room (obs);
-+      size_t len;
-+      if (!avail)
-+        {
-+          int ch = getc (pin);
-+          if (ch == EOF)
-+            break;
-+          obstack_1grow (obs, ch);
-+          continue;
-+        }
-+      len = fread (obstack_next_free (obs), 1, avail, pin);
-+      if (len <= 0)
-+        break;
-+      obstack_blank_fast (obs, len);
-+    }
-+  if (ferror (pin))
-+    m4_failure (errno, _("cannot read pipe"));
-+  status = pclose (pin);
-+  sysval = status == -1 ? 127 : vms_sysval (status);
-+  return;
++  {
++    unsigned int vstatus;
++    size_t len;
++    char *out = vms_spawn (cmd, &len, &vstatus);
++    (void) prog_args;
++    (void) child;
++    (void) fd;
++    (void) pin;
++    (void) status;
++    (void) sig_status;
++    if (out == NULL)
++      {
++        M4ERROR ((warning_status, 0, _("cannot run command `%s'"), cmd));
++        sysval = 127;
++        return;
++      }
++    obstack_grow (obs, out, len);
++    free (out);
++    sysval = vms_sysval (vstatus);
++    return;
++  }
 +#endif
  #if W32_NATIVE
    if (strstr (SYSCMD_SHELL, "cmd"))

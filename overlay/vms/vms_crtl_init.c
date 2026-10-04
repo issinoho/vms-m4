@@ -10,9 +10,11 @@
 #include <config.h>
 
 #include <stdlib.h>
-/* gnulib renames getcwd (lib/unistd.h); <unixlib.h> redeclares the CRTL's
-   variadic getcwd, which would then clash.  Not used here.  */
+/* gnulib renames getcwd and mkdir (lib/unistd.h, lib/sys/stat.h);
+   <unixlib.h> redeclares the CRTL's versions, which would then clash.
+   Neither is used here.  */
 #undef getcwd
+#undef mkdir
 #include <unixlib.h>
 
 struct feature { const char *name; int value; };

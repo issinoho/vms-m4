@@ -90,6 +90,9 @@ for h in $built; do
     cp "$hostcfg/lib/$h" "$stage/lib/$h"
 done
 cp "$hostcfg/lib/config.h" "$stage/lib/config.h"   # m4: AC_CONFIG_HEADERS([lib/config.h:...])
+# VSI C does not find a header with "+" in its name: lib/float+.h is also
+# lib/float_plus.h (patch 0008 includes it by that name on VMS).
+cp "$stage/lib/float+.h" "$stage/lib/float_plus.h"
 # VSI C cannot #include a name with two dots: generated lib/malloc/*.gl.h
 # become *_gl.h (patch 0003 includes them by that name on VMS).
 for f in "$stage"/lib/malloc/*.gl.h; do
