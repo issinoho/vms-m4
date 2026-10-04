@@ -20,14 +20,14 @@ link test sent to VSI C on the node, and MMS builds the result.
 
 ## Status
 
-**Builds and passes its smoke test on both architectures; kits built, install check and
-release to come.**
+**Released: [v1.4.21-vms1](https://github.com/issinoho/vms-m4/releases/tag/v1.4.21-vms1).**
 
 | | IA64 (OpenVMS V8.4-2L3, VSI C 7.4) | x86-64 (OpenVMS E9.2-4, VSI C 7.7) |
 |---|---|---|
 | VSI C configure answers (identical on both) | yes | yes |
 | Builds | yes | yes |
 | Smoke test (expansion, `eval`, `include`, diversions, `syscmd`/`esyscmd` with DCL, output as lines, error status) | 9/9 | 9/9 |
+| Kit install, run from the kit, remove | clean | clean |
 | PCSI kit (`M4`, `V1.4-21E1`) | `ISSINOHO-I64VMS-M4-V0104-21E1-1.PCSI` | `ISSINOHO-X86VMS-M4-V0104-21E1-1.PCSI` |
 
 ## On VMS
@@ -44,8 +44,23 @@ release to come.**
   options reach m4 in lower case: `-D` (define) becomes `-d` (debug). Quote them
   (`"-DNAME=value"`) or `$ SET PROCESS/PARSE_STYLE=EXTENDED` first.
 
-The kit will install `[M4.BIN]M4.EXE`, `M4$SETUP.COM` (defines the `m4` command) and the
-manual, and `SYS$STARTUP:M4$STARTUP.COM`, which defines `M4$ROOT`.
+## Installing the kit
+
+Download the kit for your architecture from the
+[latest release](https://github.com/issinoho/vms-m4/releases/latest) and check it against
+the release's `SHA256SUMS`. A kit downloaded through a non-VMS system loses its record
+format, so restore that first, then install it:
+
+```
+$ SET FILE/ATTRIBUTE=(RFM:FIX,LRL:8192,MRS:8192,RAT:NONE) ISSINOHO-*-M4-V0104-21E1-1.PCSI
+$ PRODUCT INSTALL M4 /PRODUCER=ISSINOHO /SOURCE=dev:[dir]
+$ @M4$ROOT:[000000]M4$SETUP.COM
+```
+
+It installs `[M4.BIN]M4.EXE`, `M4$SETUP.COM` (defines the `m4` command; add it to
+`LOGIN.COM` or `SYLOGIN.COM`), the manual in `[M4.DOC]`, and `SYS$STARTUP:M4$STARTUP.COM`,
+which defines `M4$ROOT` (add `$ @SYS$STARTUP:M4$STARTUP.COM` to
+`SYS$MANAGER:SYSTARTUP_VMS.COM` to define it at every boot). `PRODUCT REMOVE M4` removes it.
 
 ## Patches
 
