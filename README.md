@@ -6,8 +6,8 @@
 
 [GNU m4](https://www.gnu.org/software/m4/) (**1.4.21**), the macro processor, built natively
 for OpenVMS on **IA64** and **x86-64**, following m4's own releases. GNU Bison runs m4 to
-generate its parsers, so this port comes first; a Bison for OpenVMS port
-is planned to use it. It belongs to the same family as
+generate its parsers: [GNU Bison for OpenVMS](https://github.com/issinoho/vms-bison) uses
+this m4. It belongs to the same family as
 [GNU grep](https://github.com/issinoho/vms-grep), [GNU sed](https://github.com/issinoho/vms-sed),
 [GNU awk](https://github.com/issinoho/vms-awk), [GNU Wget](https://github.com/issinoho/vms-wget),
 [curl](https://github.com/issinoho/vms-curl), [zlib](https://github.com/issinoho/vms-zlib) and
