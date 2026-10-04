@@ -31,15 +31,17 @@ Each user (or SYLOGIN.COM, for everyone) then defines the command:
 
 syscmd and esyscmd
 ------------------
-syscmd and esyscmd run their command through DCL (or through the GNV shell
-when m4 runs under one):
+syscmd and esyscmd run their command as DCL in a subprocess (LIB$SPAWN),
+with the output collected in a temporary file in SYS$SCRATCH; the
+subprocess has your symbols and logical names:
 
     syscmd(`directory/size *.c')
     esyscmd(`write sys$output f$getsyi("NODENAME")')
 
-sysval is 0 after a command that succeeded; after one that failed it is
-the exit code of a C program that exited with a POSIX status, otherwise
-the severity of the VMS status (2 error, 4 fatal, 0 warning).
+syscmd's output goes to m4's output in sequence.  sysval is 0 after a
+command that succeeded; after one that failed it is the exit code of a C
+program that exited with a POSIX status, otherwise the severity of the VMS
+status (2 error, 4 fatal, 0 warning).
 
 Upper-case options and batch jobs
 ---------------------------------

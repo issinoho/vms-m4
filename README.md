@@ -20,22 +20,24 @@ link test sent to VSI C on the node, and MMS builds the result.
 
 ## Status
 
-**In progress; no release yet.** The VSI C configure runs are under way on both nodes; the
-build, smoke test and PCSI kit follow.
+**Builds and passes its smoke test on both architectures; kits built, install check and
+release to come.**
 
 | | IA64 (OpenVMS V8.4-2L3, VSI C 7.4) | x86-64 (OpenVMS E9.2-4, VSI C 7.7) |
 |---|---|---|
-| VSI C configure answers | in progress | in progress |
-| Builds | pending | pending |
-| Smoke test | pending | pending |
-| PCSI kit (`M4`, `V1.4-21E1`) | pending | pending |
+| VSI C configure answers (identical on both) | yes | yes |
+| Builds | yes | yes |
+| Smoke test (expansion, `eval`, `include`, diversions, `syscmd`/`esyscmd` with DCL, output as lines, error status) | 9/9 | 9/9 |
+| PCSI kit (`M4`, `V1.4-21E1`) | `ISSINOHO-I64VMS-M4-V0104-21E1-1.PCSI` | `ISSINOHO-X86VMS-M4-V0104-21E1-1.PCSI` |
 
 ## On VMS
 
-- **`syscmd` and `esyscmd`** run their command through DCL (or through the GNV shell when m4
-  runs under one), using the C run-time library's `system()` and `popen()`:
-  `esyscmd(`write sys$output f$getsyi("NODENAME")')`. OpenVMS has no `fork()`, which
-  gnulib's process code needs (patch 0007).
+- **`syscmd` and `esyscmd`** run their command as DCL in a subprocess (`LIB$SPAWN`), its
+  output collected in a temporary file in `SYS$SCRATCH`:
+  `esyscmd(`write sys$output f$getsyi("NODENAME")')`. `syscmd`'s output goes to m4's
+  output in sequence; `sysval` is 0 after success. OpenVMS has no `fork()`, which gnulib's
+  process code needs, and the C RTL's `system()`/`popen()` fail or hang when m4's output is
+  redirected to a file (patch 0007).
 - **Exit status.** Under DCL a failed run has error severity, so `ON ERROR` works; under a
   GNV shell, `$?` is the exit code as on Unix (patch 0005, as in vms-wget).
 - **Upper-case options in batch jobs.** Under the TRADITIONAL DCL parse style unquoted
@@ -55,7 +57,8 @@ manual, and `SYS$STARTUP:M4$STARTUP.COM`, which defines `M4$ROOT`.
 | 0004 | `configure`: look for `struct sched_param` in `<pthread.h>` for host `openvms*`. |
 | 0005 | `lib/stdlib.in.h`: route `exit()` through `vms_exit()` for an error-severity status under DCL. |
 | 0006 | `lib/config.hin`: undefine VSI C's `<assert.h>` guard so `assert` comes back after gnulib's `#undef`. |
-| 0007 | `src/builtin.c`: `syscmd` and `esyscmd` with `system()` and `popen()` on VMS. |
+| 0007 | `src/builtin.c`: `syscmd` and `esyscmd` through `LIB$SPAWN` on VMS. |
+| 0008 | `lib/*.c`: include `float+.h` as `float_plus.h` (VSI C does not find a name with `+`). |
 
 0001-0006 are the gnulib fixes of the sed and Wget ports.
 
