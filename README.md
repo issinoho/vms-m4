@@ -1,0 +1,89 @@
+<p align="center">
+  <img src="docs/images/banner.svg" alt="GNU m4 for OpenVMS: a DECterm window running m4, with the GNU head" width="100%">
+</p>
+
+# GNU m4 for OpenVMS
+
+[GNU m4](https://www.gnu.org/software/m4/) (**1.4.21**), the macro processor, built natively
+for OpenVMS on **IA64** and **x86-64**, following m4's own releases. GNU Bison runs m4 to
+generate its parsers, so this port comes first; a Bison for OpenVMS port
+is planned to use it. It belongs to the same family as
+[GNU grep](https://github.com/issinoho/vms-grep), [GNU sed](https://github.com/issinoho/vms-sed),
+[GNU awk](https://github.com/issinoho/vms-awk), [GNU Wget](https://github.com/issinoho/vms-wget),
+[curl](https://github.com/issinoho/vms-curl), [zlib](https://github.com/issinoho/vms-zlib) and
+[PCRE2](https://github.com/issinoho/vms-pcre2) for OpenVMS.
+
+This repository holds **only our changes**: every build starts from the signed GNU release
+tarball (Eric Blake's key, pinned in `keys/`), applies our patches and adds our VMS files.
+As for grep, sed and Wget, m4's own `configure` runs on a Linux host with every compile and
+link test sent to VSI C on the node, and MMS builds the result.
+
+## Status
+
+**In progress; no release yet.** The VSI C configure runs are under way on both nodes; the
+build, smoke test and PCSI kit follow.
+
+| | IA64 (OpenVMS V8.4-2L3, VSI C 7.4) | x86-64 (OpenVMS E9.2-4, VSI C 7.7) |
+|---|---|---|
+| VSI C configure answers | in progress | in progress |
+| Builds | pending | pending |
+| Smoke test | pending | pending |
+| PCSI kit (`M4`, `V1.4-21E1`) | pending | pending |
+
+## On VMS
+
+- **`syscmd` and `esyscmd`** run their command through DCL (or through the GNV shell when m4
+  runs under one), using the C run-time library's `system()` and `popen()`:
+  `esyscmd(`write sys$output f$getsyi("NODENAME")')`. OpenVMS has no `fork()`, which
+  gnulib's process code needs (patch 0007).
+- **Exit status.** Under DCL a failed run has error severity, so `ON ERROR` works; under a
+  GNV shell, `$?` is the exit code as on Unix (patch 0005, as in vms-wget).
+- **Upper-case options in batch jobs.** Under the TRADITIONAL DCL parse style unquoted
+  options reach m4 in lower case: `-D` (define) becomes `-d` (debug). Quote them
+  (`"-DNAME=value"`) or `$ SET PROCESS/PARSE_STYLE=EXTENDED` first.
+
+The kit will install `[M4.BIN]M4.EXE`, `M4$SETUP.COM` (defines the `m4` command) and the
+manual, and `SYS$STARTUP:M4$STARTUP.COM`, which defines `M4$ROOT`.
+
+## Patches
+
+| Patch | Purpose |
+|---|---|
+| 0001 | `lib/dynarray.h`, `lib/scratch_buffer.h`: include the generated `*.gl.h` headers as `*_gl.h` (VSI C cannot include a name with two dots). |
+| 0002 | `lib/getprogname.c`: VMS implementation. |
+| 0003 | `lib/malloc/scratch_buffer.h`: avoid the member name `__align`, a VSI C keyword. |
+| 0004 | `configure`: look for `struct sched_param` in `<pthread.h>` for host `openvms*`. |
+| 0005 | `lib/stdlib.in.h`: route `exit()` through `vms_exit()` for an error-severity status under DCL. |
+| 0006 | `lib/config.hin`: undefine VSI C's `<assert.h>` guard so `assert` comes back after gnulib's `#undef`. |
+| 0007 | `src/builtin.c`: `syscmd` and `esyscmd` with `system()` and `popen()` on VMS. |
+
+0001-0006 are the gnulib fixes of the sed and Wget ports.
+
+## How to build
+
+Set up `tools/nodes.conf` as described in
+[vms-grep's README](https://github.com/issinoho/vms-grep#2b-build-on-vms-from-the-host-over-ssh).
+
+```sh
+git clone https://github.com/issinoho/vms-m4.git
+cd vms-m4
+tools/vms_configure.sh ia64 # VSI C configure run, about an hour (once per m4 release)
+tools/prepare.sh            # fetch + verify, patch, configure with the VSI C answers, MMS lists
+tools/build.sh ia64         # upload, then @[.VMS]BUILD on the node (MMS)
+tools/test.sh ia64          # smoke test
+tools/kit.sh ia64           # PCSI kit -> out/kits/
+```
+
+## Artwork
+
+`docs/images/banner.svg` and `docs/images/icon.svg` were made for this project in the style
+of classic DECwindows and VT terminals, like those of its sibling ports. The GNU head is by
+Aurelio A. Heckert, used under the terms on <https://www.gnu.org/graphics/heckert_gnu.html>.
+
+## Licence
+
+GNU m4 is free software under the GNU General Public License, version 3 or later; see
+`COPYING`. Our patches and VMS files are distributed under the same terms.
+
+OpenVMS is a trademark of VMS Software, Inc. This project is not affiliated with VMS
+Software, Inc. or with the GNU project.
