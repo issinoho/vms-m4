@@ -1,0 +1,30 @@
+--
+-- PCSI product description for GNU m4 on OpenVMS.
+-- Template: tools/prepare.sh substitutes @PRODUCER@, @BASE@ and @PCSIVERSION@.
+--
+product @PRODUCER@ @BASE@ M4 @PCSIVERSION@ full ;
+
+    information RELEASE_NOTES phase after ;
+
+    directory [M4] ;
+    directory [M4.BIN] ;
+    directory [M4.DOC] ;
+
+    file [M4.BIN]M4.EXE ;
+    file [SYS$STARTUP]M4$STARTUP.COM ;
+    file [M4]M4$SETUP.COM ;
+    file [M4.DOC]README.VMS ;
+    file [M4.DOC]COPYING. ;
+    file [M4.DOC]NEWS. ;
+    file [M4.DOC]M4.TXT ;
+    file [M4.DOC]M4.1 ;
+
+    -- Define M4$ROOT now and print the post-installation tasks (PCSI shows
+    -- only the title of an information message unless /HELP is given).
+    execute postinstall "@PCSI$DESTINATION:[SYS$STARTUP]M4$STARTUP.COM INSTALL" interactive ;
+    -- On removal, deassign M4$ROOT.
+    execute install "CONTINUE" remove "@PCSI$DESTINATION:[SYS$STARTUP]M4$STARTUP.COM REMOVE" ;
+
+    information POST_INSTALL phase after ;
+
+end product ;

@@ -1,0 +1,98 @@
+Subject: builtin: on OpenVMS, run syscmd and esyscmd with system() and popen()
+
+gnulib's execute() and create_pipe_in() need fork(), which OpenVMS lacks
+(its posix_spawn emulation does not compile there).  On VMS, run the
+command with the C RTL's system() (syscmd) and popen() (esyscmd), which go
+through DCL, or through the GNV shell when m4 runs under one, and derive
+sysval from the VMS completion status: 0 for success, the exit code of a
+program that exited with a POSIX status, otherwise the status's severity.
+
+--- a/src/builtin.c	2026-10-04 10:18:46.565861095 +0100
++++ b/src/builtin.c	2026-10-04 10:18:46.566580884 +0100
+@@ -954,6 +954,24 @@
+ /* Exit code from last "syscmd" command.  */
+ static int sysval;
+ 
++#ifdef __VMS
++/* OpenVMS has no fork(), so gnulib's execute() and create_pipe_in() cannot
++   run a command; the C RTL's system() and popen() run it through DCL
++   instead (or through the GNV shell, when m4 runs under one).  sysval from
++   the VMS completion status: 0 for success; the exit code of a C program
++   that exited with a POSIX status (%X35A000 + N*8); otherwise the status's
++   severity (2 error, 4 fatal, 0 warning).  */
++static int
++vms_sysval (int status)
++{
++  if (status & 1)
++    return 0;
++  if ((status & 0x0FFFF000) == 0x0035A000)
++    return (status & 0x7F8) >> 3;
++  return (status & 7) ? (status & 7) : 1;
++}
++#endif
++
+ static void
+ m4_syscmd (struct obstack *obs MAYBE_UNUSED, int argc, token_data **argv)
+ {
+@@ -970,6 +988,19 @@
+     }
+ 
+   debug_flush_files ();
++#ifdef __VMS
++  status = system (cmd);
++  (void) prog_args;
++  (void) sig_status;
++  if (status == -1)
++    {
++      M4ERROR ((warning_status, errno, _("cannot run command `%s'"), cmd));
++      sysval = 127;
++    }
++  else
++    sysval = vms_sysval (status);
++  return;
++#endif
+ #if W32_NATIVE
+   if (strstr (SYSCMD_SHELL, "cmd"))
+     {
+@@ -1026,6 +1057,41 @@
+     }
+ 
+   debug_flush_files ();
++#ifdef __VMS
++  (void) prog_args;
++  (void) child;
++  (void) fd;
++  (void) sig_status;
++  pin = popen (cmd, "r");
++  if (pin == NULL)
++    {
++      M4ERROR ((warning_status, errno, _("cannot run command `%s'"), cmd));
++      sysval = 127;
++      return;
++    }
++  while (1)
++    {
++      size_t avail = obstack_room (obs);
++      size_t len;
++      if (!avail)
++        {
++          int ch = getc (pin);
++          if (ch == EOF)
++            break;
++          obstack_1grow (obs, ch);
++          continue;
++        }
++      len = fread (obstack_next_free (obs), 1, avail, pin);
++      if (len <= 0)
++        break;
++      obstack_blank_fast (obs, len);
++    }
++  if (ferror (pin))
++    m4_failure (errno, _("cannot read pipe"));
++  status = pclose (pin);
++  sysval = status == -1 ? 127 : vms_sysval (status);
++  return;
++#endif
+ #if W32_NATIVE
+   if (strstr (SYSCMD_SHELL, "cmd"))
+     {
