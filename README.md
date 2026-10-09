@@ -4,7 +4,9 @@
 
 # GNU m4 for OpenVMS
 
+[![Release](https://img.shields.io/github/v/release/issinoho/vms-m4?label=release)](https://github.com/issinoho/vms-m4/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/issinoho/vms-m4/total?label=downloads)](https://github.com/issinoho/vms-m4/releases)
+![OpenVMS](https://img.shields.io/badge/OpenVMS-IA64%20%7C%20x86--64-blue)
 
 [GNU m4](https://www.gnu.org/software/m4/) (**1.4.21**), the macro processor, built natively for
 OpenVMS on **IA64** and **x86-64**, following m4's own releases. GNU Bison runs m4 to generate its
