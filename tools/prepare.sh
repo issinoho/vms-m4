@@ -147,7 +147,9 @@ done
 rm -f "$kit/m4.pcsi\$desc_template" "$kit/m4.pcsi\$text_template"
 mv "$kit/m4\$startup.com" "$kit/M4\$STARTUP.COM"
 mv "$kit/m4\$setup.com" "$kit/M4\$SETUP.COM"
-subst "" "IA64 and x86-64" < "$kit/readme.vms" > "$kit/README.VMS"; rm -f "$kit/readme.vms"
+subst "" "IA64 and x86-64" < "$kit/readme.vms" > "$kit/README.VMS"
+# The Alpha kit has its own README (the others are unchanged, so their kits stay as released).
+subst "" "Alpha" < "$kit/readme.vms" > "$kit/README_AXPVMS.VMS"; rm -f "$kit/readme.vms"
 mkdir -p "$kit/doc"
 cp "$stage/COPYING" "$kit/doc/COPYING."
 cp "$stage/NEWS" "$kit/doc/NEWS."

@@ -24,3 +24,37 @@ gl_cv_onwards_func_mempcpy=yes
 # configure ask for host "openvms").  The VSI C configure run predates that
 # patch and never asked, so record the answer here.
 ac_cv_type_struct_sched_param=yes
+
+# OpenVMS Alpha (V8.4-2L2, VSI C V7.4-002): the staged config.h, generated from the IA64
+# answers (configure-ia64.cache), is shared by all three architectures.  No full configure
+# was run on the Alpha (for vms-grep it took 111 minutes and reproduced the IA64 cache apart
+# from the CPU ABI lines, gl_cv_host_cpu_c_abi*, which this config.h does not use).  Instead
+# every test program that the IA64 configure run sent to VSI C was compiled, linked or
+# preprocessed on the node with the real compiler qualifiers and defines (CC_QUAL/CC_DEFS
+# in sources.mms; ccflags.txt), exactly as the compile server does.  The programs were
+# collected by running configure on the host against the IA64 answer memo (no node needed;
+# it reproduced configure-ia64.cache exactly), so they are configure's own text with its
+# confdefs.h, not a re-implementation.  549 distinct programs:
+#   - 362 compile tests (192 ok, 170 fail): the headers (57 ac_cv_header_*), the
+#     declarations (71 ac_cv_have_decl_*), types (24 ac_cv_type_*) and members (11
+#     ac_cv_member_*), with every include variant, and the compiler-feature tests behind
+#     ac_cv_c_*, gl_cv_c_*, gl_cv_type_*, gl_cv_header_* and gl_cv_cc_*.
+#   - 166 link tests (95 ok, 71 fail): the functions (120 ac_cv_func_*, incl. gnulib's
+#     "onwards" and gl_cv_func_* link checks), ac_cv_lib_* and ac_cv_search_*.
+#   - 21 preprocess tests (16 ok, 5 fail).
+# Result: all 549 give the same verdict on the Alpha as on the IA64 (0 differences).  For
+# the 21 preprocess tests the text produced from the test's own source is identical too;
+# only the contents of the CRTL headers differ (internal helpers such as the vfork
+# support routines are declared differently), and no answer depends on that.  mempcpy and
+# pthread_sigmask are not among the programs: they are settled above, for all architectures.
+# struct sched_param likewise.  So the one config.h serves IA64, x86-64 and Alpha.
+# A short run-time probe (linked with the same qualifiers) also agrees with the cached
+# run-time answers: long, pointers, size_t, ptrdiff_t, time_t, wchar_t, wint_t and
+# sig_atomic_t are 32 bits, off_t 64; size_t, wchar_t and time_t unsigned, ptrdiff_t, wint_t
+# and sig_atomic_t signed (as cached); little-endian; realloc(p,0) returns NULL; open() of a
+# directory fails with ENOENT (gl_cv_func_open_directory_works=no above); stat() of "file/"
+# fails; mktime() of 1970-01-01 gives -1.  Where the Alpha is better than the cross run's
+# guess ("guessing no": malloc(0) and realloc(NULL,0) return non-NULL, snprintf is C99,
+# getcwd(NULL,0) works, the C locale's mbrtowc accepts a high byte), gnulib then uses its
+# own replacement, which is also what the IA64 and x86-64 builds use; the replacements work
+# on every architecture.  (strtod does not read hex floats, matching "guessing no".)

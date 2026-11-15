@@ -6,11 +6,11 @@
 
 [![Release](https://img.shields.io/github/v/release/issinoho/vms-m4?label=release)](https://github.com/issinoho/vms-m4/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/issinoho/vms-m4/total?label=downloads)](https://github.com/issinoho/vms-m4/releases)
-![OpenVMS](https://img.shields.io/badge/OpenVMS-IA64%20%7C%20x86--64-blue)
+![OpenVMS](https://img.shields.io/badge/OpenVMS-IA64%20%7C%20x86--64%20%7C%20Alpha-blue)
 [![License](https://img.shields.io/github/license/issinoho/vms-m4)](COPYING)
 
 [GNU m4](https://www.gnu.org/software/m4/) (**1.4.21**), the macro processor, built natively for
-OpenVMS on **IA64** and **x86-64**, following m4's own releases. GNU Bison runs m4 to generate its
+OpenVMS on **IA64**, **x86-64** and **Alpha**, following m4's own releases. GNU Bison runs m4 to generate its
 parsers: [GNU Bison for OpenVMS](https://github.com/issinoho/vms-bison) uses this m4. It belongs to
 the same family as [GNU grep](https://github.com/issinoho/vms-grep),
 [GNU sed](https://github.com/issinoho/vms-sed), [GNU awk](https://github.com/issinoho/vms-awk),
@@ -40,6 +40,20 @@ link test sent to VSI C on the node, and MMS builds the result.
 | Smoke test (expansion, `eval`, `include`, diversions, `syscmd`/`esyscmd` with DCL, output as lines, error status) | 9/9 | 9/9 |
 | Kit install, run from the kit, remove | clean | clean |
 | PCSI kit (`M4`, `V1.4-21E1`) | `ISSINOHO-I64VMS-M4-V0104-21E1-1.PCSI` | `ISSINOHO-X86VMS-M4-V0104-21E1-1.PCSI` |
+
+**Alpha (v1.4.21-vms2, a dedicated Alpha release; IA64 and x86-64 stay on vms1):** built on
+OpenVMS Alpha V8.4-2L2 with VSI C V7.4-002 (informational messages only: 99
+`%CC-I-QUESTCOMPARE`, no warnings or errors); DCL smoke test 9/9; kit
+`ISSINOHO-AXPVMS-M4-V0104-21E2-1.PCSI`. The Alpha shares the IA64-derived `config.h`, checked
+by compiling, linking and preprocessing all 549 test programs of the IA64 configure run on the
+node (same verdict for every one) plus a run-time probe; see `overlay/vms/config/vms-manual.site`.
+m4's own test suite needs GNV, which the Alpha node does not have, so only the smoke test runs
+there.
+
+**Requirements:** OpenVMS IA64, x86-64 or Alpha with VSI C and MMS (tested on IA64 V8.4-2L3
+with VSI C 7.4, x86-64 E9.2-4 with VSI C 7.7, and Alpha V8.4-2L2 with VSI C V7.4-002). On the
+host: git, bash, python3, gcc and make, curl, gpg, and ssh/sftp for the automated route. GNV
+for m4's own test suite (not available on the Alpha node).
 
 ## On VMS
 
@@ -96,9 +110,9 @@ Set up `tools/nodes.conf` as described in
 ```sh
 git clone https://github.com/issinoho/vms-m4.git
 cd vms-m4
-tools/vms_configure.sh ia64 # VSI C configure run, about an hour (once per m4 release)
+tools/vms_configure.sh ia64 # VSI C configure run, about an hour (once per m4 release; the Alpha reuses the IA64 answers)
 tools/prepare.sh            # fetch + verify, patch, configure with the VSI C answers, MMS lists
-tools/build.sh ia64         # upload, then @[.VMS]BUILD on the node (MMS)
+tools/build.sh ia64         # upload, then @[.VMS]BUILD on the node (MMS); ia64, x86 or alpha (batch job)
 tools/test.sh ia64          # smoke test
 tools/kit.sh ia64           # PCSI kit -> out/kits/
 ```
@@ -107,7 +121,7 @@ tools/kit.sh ia64           # PCSI kit -> out/kits/
 
 1. m4's own test suite under GNV, as for grep and sed.
 2. Offer patch 0007 (`syscmd`/`esyscmd` on VMS) to m4, and the gnulib fixes to gnulib.
-3. A port to OpenVMS **Alpha**.
+3. ~~A port to OpenVMS **Alpha**.~~ Done: see Status (Alpha kit, patch level 2).
 
 The family of ports, all for IA64 and x86-64 (MariaDB: x86-64 only), each following its upstream releases:
 
